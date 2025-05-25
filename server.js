@@ -34,18 +34,32 @@ const transporter = nodemailer.createTransport({
 app.post('/api/complaint', async (req, res) => {
   const { title, description, severity } = req.body;
   const newComplaint = new Complaint({ title, description, severity });
-  await newComplaint.save();
 
-  // Email to admin
-  const mailOptions = {
-    from: process.env.GMAIL_USER,
-    to: process.env.TO_EMAIL,
-    subject: `[GRIEVANCE PORTAL] New Complaint: ${title}`,
-    text: `Description: ${description}\nSeverity: ${severity || "Not specified"}\n\nGo to your admin panel to respond.`
-  };
-  transporter.sendMail(mailOptions);
+  try {
+    await newComplaint.save();
+    console.log("Complaint submitted:", { title, description, severity });
 
-  res.json({ success: true, message: "Complaint submitted!" });
+    // Email to admin
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: process.env.TO_EMAIL,
+      subject: `[GRIEVANCE PORTAL] New Complaint: ${title}`,
+      text: `Description: ${description}\nSeverity: ${severity || "Not specified"}\n\nGo to your admin panel to respond.`
+    };
+
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.error("Error sending mail:", err);
+        res.json({ success: false, message: "Complaint submitted, but failed to send email." });
+      } else {
+        console.log("Mail sent:", info.response);
+        res.json({ success: true, message: "Complaint submitted! Jusband has been notified via email." });
+      }
+    });
+  } catch (e) {
+    console.error("Error saving complaint or sending email:", e);
+    res.status(500).json({ success: false, message: "Error submitting complaint." });
+  }
 });
 
 // Admin login (hardcoded)
